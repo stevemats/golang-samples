@@ -18,21 +18,21 @@
 package helloworld
 
 import (
+	"fmt"
 	"log"
 	"net/http"
-	"os"
-)
-
-// Loggers for printing to Stdout and Stderr.
-var (
-	stdLogger = log.New(os.Stdout, "", 0)
-	logger    = log.New(os.Stderr, "", 0)
 )
 
 // HelloLogging logs messages.
 func HelloLogging(w http.ResponseWriter, r *http.Request) {
-	stdLogger.Println("I am a log entry!")
-	logger.Println("I am an error!")
+	log.Println("This is stderr")
+	fmt.Println("This is stdout")
+
+	// Structured logging can be used to set severity levels.
+	// See https://cloud.google.com/logging/docs/structured-logging.
+	fmt.Println(`{"message": "This has ERROR severity", "severity": "error"}`)
+
+	// cloud.google.com/go/logging can optionally be used for additional options.
 }
 
 // [END functions_log_helloworld]

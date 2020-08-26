@@ -54,26 +54,27 @@ func createIDForTest(resource string) string {
 }
 
 func TestMain(m *testing.M) {
-	setup(m)
+	_, ok := testutil.ContextMain(m)
+	if !ok {
+		log.Print("GOLANG_SAMPLES_PROJECT_ID is unset. Skipping.")
+		return
+	}
+	if err := setup(m); err != nil {
+		log.Fatal(err)
+	}
 	s := m.Run()
 	shutdown()
 	os.Exit(s)
 }
 
-func setup(m *testing.M) {
+func setup(m *testing.M) error {
 	ctx := context.Background()
-	tc, ok := testutil.ContextMain(m)
-
-	// Retrieve project ID
-	if !ok {
-		fmt.Fprintln(os.Stderr, "Project is not set up properly for system tests. Make sure GOLANG_SAMPLES_PROJECT_ID is set")
-		return
-	}
+	tc, _ := testutil.ContextMain(m)
 	projectID = tc.ProjectID
 
 	pubsubClient, err := pubsub.NewClient(ctx, projectID)
 	if err != nil {
-		fmt.Printf("Could not create pubsub Client:\n%v\n", err)
+		return err
 	}
 	client = pubsubClient
 
@@ -81,7 +82,7 @@ func setup(m *testing.M) {
 
 	topic, err := client.CreateTopic(ctx, topicID)
 	if err != nil {
-		log.Fatalf("Could not create topic: %v", err)
+		return err
 	}
 	fmt.Printf("Topic created: %v\n", topic)
 	topicName = topic.String()
@@ -89,10 +90,10 @@ func setup(m *testing.M) {
 	// Generate UUID v1 for registry used for tests
 	registryID = createIDForTest("registry")
 
-	if _, err = createRegistry(os.Stdout, projectID, region, registryID, topicName); err != nil {
-		fmt.Printf("Could not create registry: %v\n", err)
-		return
+	if _, err := createRegistry(os.Stdout, projectID, region, registryID, topicName); err != nil {
+		return err
 	}
+	return nil
 }
 
 func shutdown() {
@@ -219,8 +220,8 @@ func TestSendCommand(t *testing.T) {
 			r.Errorf("Should not be able to send command")
 		}
 
-		if !strings.Contains(err.Error(), "is not subscribed to the commands topic") {
-			r.Errorf("Should create an error that device is not subscribed: %v", err)
+		if !strings.Contains(err.Error(), "not connected") {
+			r.Errorf("Should create an error that device is not connected: %v", err)
 		}
 	})
 
@@ -228,6 +229,10 @@ func TestSendCommand(t *testing.T) {
 }
 
 func TestCreateGateway(t *testing.T) {
+	if pubKeyRSA == "" {
+		t.Skip("GOLANG_SAMPLES_IOT_PUB not set")
+	}
+
 	gatewayID := createIDForTest("gateway")
 
 	testutil.Retry(t, 1, 10*time.Second, func(r *testutil.R) {
@@ -247,6 +252,10 @@ func TestCreateGateway(t *testing.T) {
 }
 
 func TestListGateways(t *testing.T) {
+	if pubKeyRSA == "" {
+		t.Skip("GOLANG_SAMPLES_IOT_PUB not set")
+	}
+
 	// list zero gateways for initial registry
 	testutil.Retry(t, 10, 10*time.Second, func(r *testutil.R) {
 		buf := new(bytes.Buffer)
@@ -285,6 +294,10 @@ func TestListGateways(t *testing.T) {
 }
 
 func TestBindDeviceToGateway(t *testing.T) {
+	if pubKeyRSA == "" {
+		t.Skip("GOLANG_SAMPLES_IOT_PUB not set")
+	}
+
 	gatewayID := createIDForTest("gateway")
 	deviceID := createIDForTest("device")
 
@@ -315,6 +328,10 @@ func TestBindDeviceToGateway(t *testing.T) {
 }
 
 func TestUnbindDeviceFromGateway(t *testing.T) {
+	if pubKeyRSA == "" {
+		t.Skip("GOLANG_SAMPLES_IOT_PUB not set")
+	}
+
 	gatewayID := createIDForTest("gateway")
 	deviceID := createIDForTest("device")
 
@@ -350,6 +367,10 @@ func TestUnbindDeviceFromGateway(t *testing.T) {
 	})
 }
 func TestListDevicesForGateway(t *testing.T) {
+	if pubKeyRSA == "" {
+		t.Skip("GOLANG_SAMPLES_IOT_PUB not set")
+	}
+
 	gatewayID := createIDForTest("gateway")
 	deviceID := createIDForTest("device")
 

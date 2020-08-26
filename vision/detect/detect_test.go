@@ -21,11 +21,8 @@ import (
 	"io"
 	"strings"
 	"testing"
-	"time"
 
 	"cloud.google.com/go/storage"
-	"google.golang.org/api/iterator"
-
 	"github.com/GoogleCloudPlatform/golang-samples/internal/testutil"
 )
 
@@ -57,30 +54,32 @@ func TestDetect(t *testing.T) {
 		if tt.local == nil {
 			continue
 		}
-
-		var buf bytes.Buffer
-		err := tt.local(&buf, "../testdata/"+tt.path)
-		if err != nil {
-			t.Fatalf("Local %s(%q): got %v, want nil err", tt.name, tt.path, err)
-		}
-		if got := buf.String(); !strings.Contains(strings.ToLower(got), strings.ToLower(tt.wantContain)) {
-			t.Errorf("Local %s(%q): got %q, want to contain %q", tt.name, tt.path, got, tt.wantContain)
-		}
+		t.Run(tt.name+"/local", func(t *testing.T) {
+			t.Parallel()
+			var buf bytes.Buffer
+			if err := tt.local(&buf, "../testdata/"+tt.path); err != nil {
+				t.Fatalf("Local %s(%q): got %v, want nil err", tt.name, tt.path, err)
+			}
+			if got, wantContain := strings.ToLower(buf.String()), strings.ToLower(tt.wantContain); !strings.Contains(got, wantContain) {
+				t.Errorf("Local %s(%q): got %q, want to contain %q", tt.name, tt.path, got, wantContain)
+			}
+		})
 	}
 
 	for _, tt := range tests {
 		if tt.gcs == nil {
 			continue
 		}
-
-		var buf bytes.Buffer
-		err := tt.gcs(&buf, "gs://python-docs-samples-tests/vision/"+tt.path)
-		if err != nil {
-			t.Fatalf("GCS %s(%q): got %v, want nil err", tt.name, tt.path, err)
-		}
-		if got := buf.String(); !strings.Contains(strings.ToLower(got), strings.ToLower(tt.wantContain)) {
-			t.Errorf("GCS %s(%q): got %q, want to contain %q", tt.name, tt.path, got, tt.wantContain)
-		}
+		t.Run(tt.name+"/gcs", func(t *testing.T) {
+			t.Parallel()
+			var buf bytes.Buffer
+			if err := tt.gcs(&buf, "gs://python-docs-samples-tests/vision/"+tt.path); err != nil {
+				t.Fatalf("GCS %s(%q): got %v, want nil err", tt.name, tt.path, err)
+			}
+			if got, wantContain := strings.ToLower(buf.String()), strings.ToLower(tt.wantContain); !strings.Contains(got, wantContain) {
+				t.Errorf("GCS %s(%q): got %q, want to contain %q", tt.name, tt.path, got, wantContain)
+			}
+		})
 	}
 }
 
@@ -89,43 +88,19 @@ func TestDetectAsyncDocument(t *testing.T) {
 
 	ctx := context.Background()
 
-	// Create a temporary bucket
 	client, err := storage.NewClient(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	bucketName := fmt.Sprintf("%s-golang-samples-%d", tc.ProjectID, time.Now().Unix())
+	bucketName := fmt.Sprintf("%s-vision", tc.ProjectID)
 	bucket := client.Bucket(bucketName)
-	if err := bucket.Create(ctx, tc.ProjectID, nil); err != nil {
-		t.Fatal(err)
-	}
+	testutil.CleanBucket(ctx, t, tc.ProjectID, bucketName)
 
-	// Clean and delete the bucket at the end of the test
-	defer func() {
-		it := bucket.Objects(ctx, nil)
-		for {
-			attrs, err := it.Next()
-			if err == iterator.Done {
-				break
-			}
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err := bucket.Object(attrs.Name).Delete(ctx); err != nil {
-				t.Fatal(err)
-			}
-		}
-		if err := bucket.Delete(ctx); err != nil {
-			t.Fatal(err)
-		}
-	}()
-
-	// Run the test
 	var buf bytes.Buffer
 	gcsSourceURI := "gs://python-docs-samples-tests/HodgeConj.pdf"
 	gcsDestinationURI := "gs://" + bucketName + "/vision/"
-	err = detectAsyncDocument(&buf, gcsSourceURI, gcsDestinationURI)
+	err = detectAsyncDocumentURI(&buf, gcsSourceURI, gcsDestinationURI)
 	if err != nil {
 		t.Fatal(err)
 	}

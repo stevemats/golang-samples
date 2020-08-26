@@ -21,7 +21,7 @@ import (
 	"io"
 	"io/ioutil"
 
-	"cloud.google.com/go/dlp/apiv2"
+	dlp "cloud.google.com/go/dlp/apiv2"
 	dlppb "google.golang.org/genproto/googleapis/privacy/dlp/v2"
 )
 
@@ -46,7 +46,7 @@ func inspectTextFile(w io.Writer, projectID, filePath string) error {
 
 	// Create and send the request.
 	req := &dlppb.InspectContentRequest{
-		Parent: "projects/" + projectID,
+		Parent: fmt.Sprintf("projects/%s/locations/global", projectID),
 		Item: &dlppb.ContentItem{
 			DataItem: &dlppb.ContentItem_ByteItem{
 				ByteItem: &dlppb.ByteContentItem{
